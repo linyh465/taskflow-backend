@@ -2,7 +2,7 @@
 cmds = ["npm install"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["echo 'Skipping tsc, using tsx directly'"]
 
 [start]
-cmd = "npm start"
+cmd = "npx tsx src/index.ts"
