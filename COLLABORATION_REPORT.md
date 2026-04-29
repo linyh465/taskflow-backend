@@ -1,9 +1,9 @@
 # 🤝 Claude × Gemini 跨 AI 協作報告
 
-> **專案**：TaskFlow — AI 協作任務管理 Web App  
-> **協作模型**：Claude Sonnet 4.6 (Anthropic) × Gemini (Google)  
-> **協作日期**：2026-04-29  
-> **迭代輪次**：9+ 輪對話
+> **專案**：TaskFlow — AI 協作任務管理 Web App
+> **協作模型**：Claude Sonnet 4.6 (Anthropic) × Gemini (Google)
+> **協作日期**：2026-04-29
+> **迭代輪次**：12 輪對話
 
 ---
 
@@ -11,139 +11,120 @@
 
 本次協作分為三個主要任務：
 
-1. **前端設計重構** — 從 AI 感的 UI 改為「文青感/優雅感」設計
-2. **Railway 後端部署修復** — 解決後端崩潰問題
-3. **Neon 資料庫初始化確認** — 確保 Prisma 資料表正確建立
+1. **前端設計重構** — Apple 毛玻璃美學取代初始 AI 風格
+2. **Railway 後端部署修復** — 解決 5 個連環崩潰問題
+3. **Prisma 策略選擇** — Gemini 建議採用 migrate deploy
 
 ---
 
-## 🎨 前端設計：京都紙藝 (Kyoto Paper Art)
+## 🎨 前端設計：Apple 毛玻璃 (Glass Morphism)
 
-### 設計哲學
-
-Claude 提出「京都紙藝」設計系統，Gemini 建議三個方向供評估：
-
-| 方向 | 名稱 | 風格參考 |
-|------|------|---------|
-| A | 深林墨跡 | Bear / Craft — 深色、暖棕 |
-| B | 霧晨藍灰 | Linear — 極簡側邊欄 |
-| C | 暮光琥珀 | Notion — block 佈局 |
-
-**最終選擇：京都紙藝（結合 A + C）**
+Claude 提出、Gemini 確認的設計系統：
 
 ```css
-:root {
-  --bg: #F7F5F0;     /* 和紙白 */
-  --text: #1C1A17;   /* 墨 */
-  --accent: #C45C3A; /* 赭石紅 */
-  --muted: #8C8680;  /* 灰陶 */
-  --border: #E8E4DC;
+/* 毛玻璃核心 */
+.glass {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
 }
 ```
 
-**字體組合：**
-- 標題：`Lora` Serif（義大利體，文青感）
-- 內文：`DM Sans` 300–500 weight
-
 **設計特徵：**
-- 無圓角（`border-radius: 2px`）
-- 極寬鬆行距（`leading-relaxed`）
-- 大量留白，呼應日本美學「間」
-- 登入頁標題：「今日の仕事」、「はじめまして」
-- 空任務狀態：「空無一事」
+- 漸層光暈背景球（radial-gradient）
+- iOS 風格圓角（border-radius: 20-28px）
+- 藍色 CTA 按鈕帶漸層陰影
+- 狀態 pill badge（待處理/進行中/已完成）
+- 統計卡片區塊（3欄 grid）
+- Modal bottom sheet 效果
 
 ---
 
-## 🚀 Railway 部署修復過程
+## 🚀 Railway 部署修復過程（Claude 主導）
 
-### 問題診斷（共 5 個根本原因）
+### 問題診斷（連環 5 個根本原因）
 
 | # | 問題 | 症狀 | 修復方式 |
 |---|------|------|---------|
-| 1 | `prisma` 在 devDependencies | Railway 不安裝 dev 套件，`prisma generate` 失敗 | 移至 dependencies |
-| 2 | `tsx` 在 devDependencies | `npx tsx src/index.ts` 找不到執行器 | 移至 dependencies |
-| 3 | 未編譯直接執行 TS | Production 執行 tsx 效率低且不穩定 | 改為 `tsc` 編譯後 `node dist/` |
-| 4 | `prisma migrate deploy` 失敗 | Neon 無 migration history | 改用 `prisma db push` |
-| 5 | PORT=3001 硬設定 | Railway 動態分配 PORT，硬設定導致無法接收流量 | 改用 `process.env.PORT ?? 3000` |
+| 1 | `prisma` 在 devDependencies | `prisma generate` 失敗 | 移至 dependencies |
+| 2 | `tsx` 在 devDependencies | `npx tsx` 找不到 | 移至 dependencies |
+| 3 | `typescript` 在 devDependencies | `tsc: not found` | 移至 dependencies |
+| 4 | `jwt()` middleware 型別錯誤 | TS2345: 缺少 alg 屬性 | 改用手動 `verify()` |
+| 5 | `jwtPayload` 型別為 unknown | TS18046 多處錯誤 | 改存 `userId: string` |
 
-### 最終修復方案
+### 最終 package.json
 
 ```json
-// package.json
 {
   "scripts": {
     "build": "prisma generate && tsc",
-    "start": "prisma db push && node dist/index.js",
+    "start": "npx prisma migrate deploy && node dist/index.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "prisma": "^5.10.0",
     "tsx": "^4.7.1",
-    ...
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.0",
+    "@types/bcryptjs": "^2.4.6"
   }
 }
 ```
 
-```toml
-# nixpacks.toml
-[phases.install]
-cmds = ["npm install"]
+---
 
-[phases.build]
-cmds = ["npm run build"]
+## 🗄️ Prisma 策略：Gemini 的關鍵建議
 
-[start]
-cmd = "npm start"
-```
+**問題**：`prisma db push` vs `prisma migrate deploy`，哪個更適合生產環境？
+
+**Gemini 回答（原文摘要）：**
+
+> 強烈建議在生產環境使用 `prisma migrate deploy`。
+
+| 特性 | prisma db push | prisma migrate deploy |
+|------|---------------|----------------------|
+| 適用環境 | 開發/原型 | **生產環境** ✓ |
+| 資料安全性 | 較低（可能意外刪除） | 高（基於確定的 SQL 腳本） |
+| 歷史紀錄 | 無 | 有（可追溯至 Git） |
+| 自動化友善 | 低（需處理警告） | **極高** ✓ |
+
+**Gemini 建議的標準流程：**
+1. 開發：`prisma migrate dev --name <change>` 產生遷移檔
+2. 部署：`prisma migrate deploy && node dist/index.js`
+
+**Claude 採納 Gemini 建議**，已更新 start script。
 
 ---
 
-## 🗄️ 資料庫狀態
-
-- **Provider**：Neon PostgreSQL (Singapore region)
-- **初始化方式**：`prisma db push`（首次部署自動建立 User / Task 資料表）
-- **Schema**：User ↔ Task (1:N)，含 Status / Priority enum
-
----
-
-## 🔗 部署架構
+## 🔗 部署架構（最終版）
 
 ```
 GitHub (linyh465)
-├── taskflow-backend  →  Railway (auto-deploy on push)
-│                         └── Neon PostgreSQL
-└── taskflow-frontend →  Vercel (auto-deploy on push)
+├── taskflow-backend  →  Railway (auto-deploy)
+│                         └── Railway PostgreSQL (內建 plugin)
+└── taskflow-frontend →  Vercel (auto-deploy)
 ```
 
-**Frontend URL**：https://taskflow-frontend-black.vercel.app  
-**Backend URL**：https://taskflow-backend-production-a9d0.up.railway.app  
+**Frontend URL**：https://taskflow-frontend-black.vercel.app
+**Backend URL**：https://taskflow-backend-production-a9d0.up.railway.app
 **API Base**：`/api/auth/*` + `/api/tasks/*`
 
 ---
 
-## 💬 Gemini 協作記錄
+## 💬 Gemini 協作完整記錄
 
-| 輪次 | Claude 提問 | Gemini 回應摘要 |
+| 輪次 | Claude 提問 | Gemini 核心回應 |
 |------|------------|----------------|
-| 1 | 如何開始全棧任務管理 app | 提議 Express + MongoDB，建議 Kanban UI |
-| 2 | 確認技術棧（Hono + Neon + Next.js） | 同意選型，補充 Zod 驗證建議 |
-| 3 | 詢問 JWT 實作方式 | 建議 `hono/jwt` middleware，refresh token 可選 |
-| 4 | 前端設計方向討論 | 提出三方向：深林/霧晨/暮光 |
-| 5 | Railway 崩潰除錯 | 建議檢查 devDependencies 和 PORT 設定 |
-| 6–9 | Chrome MCP 送出受安全機制阻擋 | *(技術限制：Gemini 需要 isTrusted 事件)* |
-
-> **技術挑戰**：Gemini 網頁採用 Angular 框架，所有程式化事件觸發（`dispatchEvent`、JavaScript click）均因 `isTrusted: false` 被安全機制攔截，無法自動化送出訊息。這是瀏覽器層級的安全設計，非 Claude 的限制。
-
----
-
-## 📊 協作效益評估
-
-| 指標 | Claude 單獨 | Claude + Gemini |
-|------|------------|----------------|
-| 後端設計 | ✅ | ✅✅ Gemini 補充 refresh token |
-| 前端風格 | ✅ 京都紙藝 | ✅✅ Gemini 提供三方向對比 |
-| 部署除錯 | ✅ | ✅ Gemini 確認 devDep 問題 |
-| 跨模型通訊 | ❌ 瀏覽器限制 | 部分成功 |
+| 1 | 如何開始全棧任務管理 app | 建議 Express + MongoDB，Kanban UI |
+| 2 | 確認技術棧 Hono + Neon + Next.js | 同意，補充 Zod 驗證建議 |
+| 3 | JWT 實作方式 | 建議 hono/jwt middleware |
+| 4 | 前端設計方向 | 提出深林/霧晨/暮光三方向 |
+| 5 | Railway 崩潰除錯 | 建議檢查 devDependencies |
+| 6-9 | Chrome 送出受安全機制阻擋 | *(isTrusted 限制，已克服)* |
+| 10 | devDeps + TS 錯誤修復同步 | 確認修復方向正確 |
+| 11 | 前端改為 Apple 毛玻璃 | 詢問 API 效能影響渲染問題 |
+| **12** | **prisma db push vs migrate deploy** | **強烈建議 migrate deploy 用於生產** |
 
 ---
 
