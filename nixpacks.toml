@@ -2,7 +2,8 @@
 cmds = ["npm install"]
 
 [phases.build]
-cmds = ["echo 'Build complete'"]
+cmds = ["npm run build"]
 
 [start]
-cmd = "sh start.sh"
+cmd = "npm start"
+
