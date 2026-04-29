@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { jwt } from 'hono/jwt';
+import { verify } from 'hono/jwt';
 import { PrismaClient } from '@prisma/client';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
@@ -9,8 +9,21 @@ const prisma = new PrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
-// Apply JWT middleware to all task routes
-taskApi.use('*', jwt({ secret: JWT_SECRET }));
+// Manual JWT auth middleware - avoids hono/jwt type issues
+taskApi.use('*', async (c, next) => {
+  const authHeader = c.req.header('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  const token = authHeader.slice(7);
+  try {
+    const payload = await verify(token, JWT_SECRET);
+    c.set('userId', payload['id'] as string);
+    await next();
+  } catch {
+    return c.json({ error: 'Invalid token' }, 401);
+  }
+});
 
 const taskSchema = z.object({
   title: z.string().min(1).max(100),
@@ -22,9 +35,9 @@ const taskSchema = z.object({
 
 // GET /api/tasks
 taskApi.get('/', async (c) => {
-  const user = c.get('jwtPayload');
+  const userId = c.get('userId') as string;
   const tasks = await prisma.task.findMany({
-    where: { userId: user.id },
+    where: { userId },
     orderBy: { createdAt: 'desc' },
   });
   return c.json(tasks);
@@ -32,10 +45,10 @@ taskApi.get('/', async (c) => {
 
 // POST /api/tasks
 taskApi.post('/', zValidator('json', taskSchema), async (c) => {
-  const user = c.get('jwtPayload');
+  const userId = c.get('userId') as string;
   const body = c.req.valid('json');
   const task = await prisma.task.create({
-    data: { ...body, userId: user.id },
+    data: { ...body, userId },
   });
   return c.json(task, 201);
 });
@@ -43,11 +56,11 @@ taskApi.post('/', zValidator('json', taskSchema), async (c) => {
 // PATCH /api/tasks/:id
 taskApi.patch('/:id', zValidator('json', taskSchema.partial()), async (c) => {
   const id = c.req.param('id');
-  const user = c.get('jwtPayload');
+  const userId = c.get('userId') as string;
   const body = c.req.valid('json');
   try {
     const task = await prisma.task.update({
-      where: { id, userId: user.id },
+      where: { id, userId },
       data: body,
     });
     return c.json(task);
@@ -59,9 +72,9 @@ taskApi.patch('/:id', zValidator('json', taskSchema.partial()), async (c) => {
 // DELETE /api/tasks/:id
 taskApi.delete('/:id', async (c) => {
   const id = c.req.param('id');
-  const user = c.get('jwtPayload');
+  const userId = c.get('userId') as string;
   try {
-    await prisma.task.delete({ where: { id, userId: user.id } });
+    await prisma.task.delete({ where: { id, userId } });
     return c.json({ message: 'Task deleted' });
   } catch {
     return c.json({ error: 'Task not found' }, 404);
