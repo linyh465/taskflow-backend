@@ -1,10 +1,16 @@
 import { Hono } from 'hono';
+import { jwt } from 'hono/jwt';
 import { PrismaClient } from '@prisma/client';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 
 const taskApi = new Hono();
 const prisma = new PrismaClient();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+
+// Apply JWT middleware to all task routes
+taskApi.use('*', jwt({ secret: JWT_SECRET }));
 
 const taskSchema = z.object({
   title: z.string().min(1).max(100),
