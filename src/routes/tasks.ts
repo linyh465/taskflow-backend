@@ -11,6 +11,7 @@ const prisma = new PrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 
+// Fix: verify() requires 3rd argument 'alg' in hono/jwt v4
 taskApi.use('*', async (c, next) => {
   const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
@@ -18,7 +19,7 @@ taskApi.use('*', async (c, next) => {
   }
   const token = authHeader.slice(7);
   try {
-    const payload = await verify(token, JWT_SECRET);
+    const payload = await verify(token, JWT_SECRET, 'HS256');
     c.set('userId', payload['id'] as string);
     await next();
   } catch {
@@ -46,7 +47,16 @@ taskApi.get('/', async (c) => {
 taskApi.post('/', zValidator('json', taskSchema), async (c) => {
   const userId = c.get('userId');
   const body = c.req.valid('json');
-  const task = await prisma.task.create({ data: { ...body, userId } });
+  const task = await prisma.task.create({
+    data: {
+      title: body.title,
+      description: body.description,
+      status: body.status,
+      priority: body.priority,
+      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+      user: { connect: { id: userId } },
+    },
+  });
   return c.json(task, 201);
 });
 
@@ -55,7 +65,16 @@ taskApi.patch('/:id', zValidator('json', taskSchema.partial()), async (c) => {
   const userId = c.get('userId');
   const body = c.req.valid('json');
   try {
-    const task = await prisma.task.update({ where: { id, userId }, data: body });
+    const task = await prisma.task.update({
+      where: { id, userId },
+      data: {
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.status !== undefined && { status: body.status }),
+        ...(body.priority !== undefined && { priority: body.priority }),
+        ...(body.dueDate !== undefined && { dueDate: new Date(body.dueDate) }),
+      },
+    });
     return c.json(task);
   } catch {
     return c.json({ error: 'Task not found' }, 404);
