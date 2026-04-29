@@ -36,8 +36,9 @@ auth.post('/login', zValidator('json', authSchema), async (c) => {
   }
   const secret = process.env.JWT_SECRET || 'fallback-secret';
   const token = await sign(
-    { id: user.id, email: user.email },
-    secret
+    { id: user.id, email: user.email, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7 },
+    secret,
+    'HS256'
   );
   return c.json({ token, user: { id: user.id, email: user.email } });
 });
