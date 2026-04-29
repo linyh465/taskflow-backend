@@ -7,17 +7,13 @@ import taskApi from './routes/tasks';
 const app = new Hono();
 
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || '*',
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.get('/', (c) => c.json({ message: 'TaskFlow API running 🚀' }));
-
-// Public routes
 app.route('/api/auth', auth);
-
-// Protected routes - middleware applied in route handlers
 app.route('/api/tasks', taskApi);
 
 app.onError((err, c) => {
@@ -25,6 +21,8 @@ app.onError((err, c) => {
   return c.json({ error: 'Internal Server Error' }, 500);
 });
 
-const port = Number(process.env.PORT) || 3001;
+// Railway provides PORT dynamically - must use it!
+const port = Number(process.env.PORT ?? 3000);
+console.log(`🚀 TaskFlow API starting on port ${port}`);
+
 serve({ fetch: app.fetch, port });
-console.log('🚀 TaskFlow API running on port', port);
